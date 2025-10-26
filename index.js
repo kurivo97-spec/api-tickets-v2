@@ -313,7 +313,7 @@ app.post('/tickets/crear', protegerRuta, async (req, res) => {
  * @endpoint GET /mis-tickets
  * @desc Obtiene todos los tickets creados por el usuario logueado (Ruta Protegida).
  */
-app.get('/mis-tickets', protegerRuta, async (req, res) => {
+app.get('/mis-tickets', async (req, res) => {
     
     // 1. Obtenemos el ID del usuario (gracias al token)
     const idSolicitante = req.usuario.id;
