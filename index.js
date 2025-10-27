@@ -633,9 +633,9 @@ app.post('/tickets/:id/adjuntar-foto', protegerRuta, upload.single('foto'), asyn
         let dataURI = "data:" + req.file.mimetype + ";base64," + b64;
         
         const cloudinaryResponse = await cloudinary.uploader.upload(dataURI, {
-            resource_type: "auto",
-            folder: "tickets-app/solicitudes" // Carpeta en Cloudinary
-        });
+  resource_type: "auto",
+  folder: "tickets-app/solicitudes" // <-- ASEGÚRATE DE QUE ESTÉ ASÍ
+});
 
         // 2. Guardar la URL segura de Cloudinary en nuestra BD (Aiven)
         connection = await pool.getConnection();
@@ -684,10 +684,10 @@ app.post('/tickets/:id/adjuntar-evidencia', protegerRuta, upload.single('evidenc
         const b64 = Buffer.from(req.file.buffer).toString("base64");
         let dataURI = "data:" + req.file.mimetype + ";base64," + b64;
         
-        const cloudinaryResponse = await cloudinary.uploader.upload(dataURI, {
-            resource_type: "auto",
-            folder: "tickets-app/evidencias" // Carpeta diferente
-        });
+const cloudinaryResponse = await cloudinary.uploader.upload(dataURI, {
+  resource_type: "auto",
+  folder: "tickets-app/evidencias" // <-- ASEGÚRATE DE QUE ESTÉ ASÍ
+});
 
         // 2. Guardar URL en Aiven
         connection = await pool.getConnection();
