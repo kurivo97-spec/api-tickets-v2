@@ -315,15 +315,15 @@ app.post('/tickets/crear', protegerRuta, async (req, res) => {
  */
 // index.js (API Backend)
 
-app.get('/mis-tickets', protegerRuta, async (req, res) => { // protegerRuta'
+app.get('/mis-tickets', protegerRuta, async (req, res) => { // 'protegerRuta' está bien
 
-    // const idSolicitante = req.usuario.id; 
+    const idSolicitante = req.usuario.id; // <-- DESCOMENTADO CORRECTAMENTE
 
     let connection;
     try {
         connection = await pool.getConnection();
 
-        // Consulta SIN filtrar por usuario (solo para probar)
+        // Consulta SQL CON el filtro WHERE
         const sqlQuery = `
             SELECT 
                 t.id_ticket,
@@ -338,17 +338,21 @@ app.get('/mis-tickets', protegerRuta, async (req, res) => { // protegerRuta'
                 Areas AS a ON t.id_area = a.id_area
             JOIN 
                 Estados_Ticket AS e ON t.id_estado = e.id_estado
-        
+            WHERE 
+                t.id_solicitante = ?  // <-- CONDICIÓN WHERE AÑADIDA DE NUEVO
+            ORDER BY 
+                t.fecha_creacion DESC
         `;
 
-        // Ejecuta la consulta SIN pasar el ID
-        const [tickets] = await connection.execute(sqlQuery,[idSolicitante]); // <-- Añade [, [idSolicitante]]
+        // Ejecuta la consulta PASANDO el idSolicitante
+        const [tickets] = await connection.execute(sqlQuery, [idSolicitante]); // <-- SE PASA [idSolicitante]
 
         res.status(200).json(tickets);
 
     } catch (error) {
-        console.error("Error en /mis-tickets (versión desprotegida):", error); // Mensaje de error más específico
-        res.status(500).json({ error: 'Error interno del servidor al obtener tickets' });
+        // Puedes dejar el mensaje de error anterior o cambiarlo
+        console.error("Error en /mis-tickets (protegido):", error); 
+        res.status(500).json({ error: 'Error interno del servidor al obtener mis tickets' });
     } finally {
         if (connection) connection.release();
     }
