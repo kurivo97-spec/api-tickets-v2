@@ -317,15 +317,15 @@ app.post('/tickets/crear', protegerRuta, async (req, res) => {
 
 // index.js (API Backend)
 
-app.get('/mis-tickets', protegerRuta, async (req, res) => { // 'protegerRuta' está bien
+app.get('/mis-tickets', protegerRuta, async (req, res) => { 
 
-    const idSolicitante = req.usuario.id; // <-- DESCOMENTADO CORRECTAMENTE
+    const idSolicitante = req.usuario.id; // ¡Esta línea es necesaria!
 
     let connection;
     try {
         connection = await pool.getConnection();
 
-        // Consulta SQL CON el filtro WHERE
+        // ESTA ES LA CONSULTA SQL CORRECTA (limpia, sin comentarios extra)
         const sqlQuery = `
             SELECT 
                 t.id_ticket,
@@ -341,18 +341,17 @@ app.get('/mis-tickets', protegerRuta, async (req, res) => { // 'protegerRuta' es
             JOIN 
                 Estados_Ticket AS e ON t.id_estado = e.id_estado
             WHERE 
-                t.id_solicitante = ?  // <-- CONDICIÓN WHERE AÑADIDA DE NUEVO
+                t.id_solicitante = ?
             ORDER BY 
                 t.fecha_creacion DESC
         `;
 
         // Ejecuta la consulta PASANDO el idSolicitante
-        const [tickets] = await connection.execute(sqlQuery, [idSolicitante]); // <-- SE PASA [idSolicitante]
+        const [tickets] = await connection.execute(sqlQuery, [idSolicitante]);
 
         res.status(200).json(tickets);
 
     } catch (error) {
-        // Puedes dejar el mensaje de error anterior o cambiarlo
         console.error("Error en /mis-tickets (protegido):", error); 
         res.status(500).json({ error: 'Error interno del servidor al obtener mis tickets' });
     } finally {
