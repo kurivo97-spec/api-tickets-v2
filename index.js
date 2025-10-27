@@ -713,7 +713,99 @@ const cloudinaryResponse = await cloudinary.uploader.upload(dataURI, {
     }
 });
 
+// index.js (API Backend)
 
+// ... (otros endpoints) ...
+
+/**
+ * @endpoint GET /tickets/:id
+ * @desc Obtiene los detalles completos de UN ticket específico.
+ */
+app.get('/tickets/:id', protegerRuta, async (req, res) => {
+    const idTicket = req.params.id;
+    const idUsuarioLogueado = req.usuario.id; // Para verificar permisos
+    const rolUsuarioLogueado = req.usuario.rol;
+
+    let connection;
+    try {
+        connection = await pool.getConnection();
+
+        // 1. Obtener datos principales del ticket y nombres relacionados
+        const sqlTicket = `
+            SELECT 
+                t.*, 
+                a.nombre_area, 
+                e.nombre_estado, 
+                sc.nombre_subcategoria,
+                solicitante.nombre_completo AS solicitante_nombre,
+                solicitante_sede.nombre_sede AS solicitante_sede,
+                solicitante.cargo AS solicitante_cargo,
+                tecnico.nombre_completo AS tecnico_nombre,
+                calif.puntuacion AS calificacion
+            FROM Tickets AS t
+            JOIN Areas AS a ON t.id_area = a.id_area
+            JOIN Estados_Ticket AS e ON t.id_estado = e.id_estado
+            LEFT JOIN SubCategorias AS sc ON t.id_subcategoria = sc.id_subcategoria
+            JOIN Usuarios AS solicitante ON t.id_solicitante = solicitante.id_usuario
+            JOIN Sedes AS solicitante_sede ON solicitante.id_sede = solicitante_sede.id_sede
+            LEFT JOIN Usuarios AS tecnico ON t.id_tecnico_asignado = tecnico.id_usuario
+            LEFT JOIN Calificaciones_Ticket AS calif ON t.id_ticket = calif.id_ticket
+            WHERE t.id_ticket = ?
+        `;
+        const [ticketResult] = await connection.execute(sqlTicket, [idTicket]);
+
+        if (ticketResult.length === 0) {
+            return res.status(404).json({ error: 'Ticket no encontrado' });
+        }
+        const ticket = ticketResult[0];
+
+        // 2. Verificar permisos: Solo el solicitante o un técnico/admin pueden ver
+        if (ticket.id_solicitante !== idUsuarioLogueado && rolUsuarioLogueado < 2) {
+             return res.status(403).json({ error: 'No tienes permiso para ver este ticket' });
+        }
+
+        // 3. Obtener los adjuntos del ticket
+        const sqlAdjuntos = `
+            SELECT id_adjunto, tipo_adjunto, url_archivo, fecha_subida 
+            FROM Adjuntos_Ticket 
+            WHERE id_ticket = ? 
+            ORDER BY fecha_subida ASC
+        `;
+        const [adjuntosResult] = await connection.execute(sqlAdjuntos, [idTicket]);
+        ticket.adjuntos = adjuntosResult; // Añadimos los adjuntos al objeto ticket
+
+        // 4. Mapeamos los nombres de las columnas para que coincidan con el frontend
+        // (Esto es opcional pero ayuda a la claridad)
+        const ticketDetallado = {
+            id_ticket: ticket.id_ticket,
+            titulo: ticket.titulo,
+            descripcion: ticket.descripcion,
+            prioridad: ticket.prioridad,
+            fecha_creacion: ticket.fecha_creacion,
+            fecha_resolucion: ticket.fecha_resolucion,
+            fecha_cierre: ticket.fecha_cierre,
+            area: ticket.nombre_area,
+            estado: ticket.nombre_estado,
+            subcategoria: ticket.nombre_subcategoria,
+            solicitante_nombre: ticket.solicitante_nombre,
+            solicitante_sede: ticket.solicitante_sede,
+            solicitante_cargo: ticket.solicitante_cargo,
+            tecnico_nombre: ticket.tecnico_nombre,
+            calificacion: ticket.calificacion,
+            adjuntos: ticket.adjuntos
+        };
+
+        res.status(200).json(ticketDetallado);
+
+    } catch (error) {
+        console.error(`Error en GET /tickets/${idTicket}:`, error);
+        res.status(500).json({ error: 'Error interno del servidor al obtener detalles del ticket' });
+    } finally {
+        if (connection) connection.release();
+    }
+});
+
+// ... (app.listen) ...
 
 // 6. INICIAR EL SERVIDOR
 app.listen(PORT, () => {
