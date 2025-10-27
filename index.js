@@ -315,9 +315,9 @@ app.post('/tickets/crear', protegerRuta, async (req, res) => {
  */
 // index.js (API Backend)
 
-app.get('/mis-tickets', async (req, res) => { // Sin 'protegerRuta'
+app.get('/mis-tickets', protegerRuta, async (req, res) => { // protegerRuta'
 
-    // const idSolicitante = req.usuario.id; // <-- ¡ASEGÚRATE DE BORRAR O COMENTAR ESTA LÍNEA!
+    // const idSolicitante = req.usuario.id; 
 
     let connection;
     try {
@@ -338,14 +338,11 @@ app.get('/mis-tickets', async (req, res) => { // Sin 'protegerRuta'
                 Areas AS a ON t.id_area = a.id_area
             JOIN 
                 Estados_Ticket AS e ON t.id_estado = e.id_estado
-            -- WHERE 
-            --    t.id_solicitante = ?  // <-- ASEGÚRATE DE QUE ESTA LÍNEA ESTÉ COMENTADA O BORRADA
-            ORDER BY 
-                t.fecha_creacion DESC
+        
         `;
 
         // Ejecuta la consulta SIN pasar el ID
-        const [tickets] = await connection.execute(sqlQuery); // <-- SIN SEGUNDO ARGUMENTO
+        const [tickets] = await connection.execute(sqlQuery,[idSolicitante]); // <-- Añade [, [idSolicitante]]
 
         res.status(200).json(tickets);
 
