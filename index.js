@@ -629,6 +629,7 @@ app.post('/tickets/:id/adjuntar-foto', protegerRuta, upload.single('foto'), asyn
     try {
         // 1. Subir el archivo a Cloudinary
         // Convertimos el buffer (archivo en memoria) a un string base64 que Cloudinary entiende
+        
         const b64 = Buffer.from(req.file.buffer).toString("base64");
         let dataURI = "data:" + req.file.mimetype + ";base64," + b64;
         
