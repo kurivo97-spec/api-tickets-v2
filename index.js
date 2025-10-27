@@ -313,17 +313,17 @@ app.post('/tickets/crear', protegerRuta, async (req, res) => {
  * @endpoint GET /mis-tickets
  * @desc Obtiene todos los tickets creados por el usuario logueado (Ruta Protegida).
  */
-app.get('/mis-tickets', async (req, res) => {
-    
-    // 1. Obtenemos el ID del usuario (gracias al token)
-    const idSolicitante = req.usuario.id;
+// index.js (API Backend)
+
+app.get('/mis-tickets', async (req, res) => { // Sin 'protegerRuta'
+
+    // const idSolicitante = req.usuario.id; // <-- ¡ASEGÚRATE DE BORRAR O COMENTAR ESTA LÍNEA!
 
     let connection;
     try {
         connection = await pool.getConnection();
 
-        // 2. Esta consulta es más compleja. Usamos JOIN
-        //    para obtener los nombres de las otras tablas.
+        // Consulta SIN filtrar por usuario (solo para probar)
         const sqlQuery = `
             SELECT 
                 t.id_ticket,
@@ -338,22 +338,20 @@ app.get('/mis-tickets', async (req, res) => {
                 Areas AS a ON t.id_area = a.id_area
             JOIN 
                 Estados_Ticket AS e ON t.id_estado = e.id_estado
-            WHERE 
-                t.id_solicitante = ?
+            -- WHERE 
+            --    t.id_solicitante = ?  // <-- ASEGÚRATE DE QUE ESTA LÍNEA ESTÉ COMENTADA O BORRADA
             ORDER BY 
                 t.fecha_creacion DESC
         `;
-        // Ordenamos por fecha, para que vea los más nuevos primero.
 
-        // 3. Ejecutamos la consulta
-        const [tickets] = await connection.execute(sqlQuery, [idSolicitante]);
+        // Ejecuta la consulta SIN pasar el ID
+        const [tickets] = await connection.execute(sqlQuery); // <-- SIN SEGUNDO ARGUMENTO
 
-        // 4. Devolvemos la lista de tickets
         res.status(200).json(tickets);
 
     } catch (error) {
-        console.error("Error en /mis-tickets:", error);
-        res.status(500).json({ error: 'Error interno del servidor' });
+        console.error("Error en /mis-tickets (versión desprotegida):", error); // Mensaje de error más específico
+        res.status(500).json({ error: 'Error interno del servidor al obtener tickets' });
     } finally {
         if (connection) connection.release();
     }
