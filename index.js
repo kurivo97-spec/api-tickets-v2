@@ -807,6 +807,101 @@ app.get('/tickets/:id', protegerRuta, async (req, res) => {
 
 // ... (app.listen) ...
 
+// index.js (API Backend)
+
+// ... (después de /tickets/:id/adjuntar-evidencia) ...
+
+// ========================================================
+// ==== HITO 7: REPORTES DE ADMINISTRACIÓN ====
+// ========================================================
+
+/**
+ * @endpoint GET /admin/reportes
+ * @desc Obtiene estadísticas clave para el panel de administración.
+ * Protegido para Rol 3 (Admin)
+ */
+app.get('/admin/reportes', protegerRuta, async (req, res) => {
+    
+    // 1. Verificar que el usuario sea Administrador (Rol 3)
+    if (req.usuario.rol !== 3) {
+        return res.status(403).json({ error: 'Acceso denegado. Se requiere rol de Administrador.' });
+    }
+
+    let connection;
+    try {
+        connection = await pool.getConnection();
+
+        // 2. Ejecutar todas las consultas de estadísticas en paralelo
+        
+        // Query 1: Conteo de tickets por Estado
+        const sqlTicketsPorEstado = `
+            SELECT e.nombre_estado, COUNT(t.id_ticket) AS total
+            FROM Estados_Ticket AS e
+            LEFT JOIN Tickets AS t ON e.id_estado = t.id_estado
+            GROUP BY e.nombre_estado
+            ORDER BY e.id_estado;
+        `;
+        
+        // Query 2: Conteo de tickets por Área
+        const sqlTicketsPorArea = `
+            SELECT a.nombre_area, COUNT(t.id_ticket) AS total
+            FROM Areas AS a
+            LEFT JOIN Tickets AS t ON a.id_area = t.id_area
+            GROUP BY a.nombre_area
+            ORDER BY a.nombre_area;
+        `;
+
+        // Query 3: Promedio de calificación (general)
+        const sqlCalificacionPromedio = `
+            SELECT AVG(puntuacion) AS promedio_general
+            FROM Calificaciones_Ticket;
+        `;
+        
+        // Query 4: Tickets resueltos por técnico (Top 5)
+        const sqlTopTecnicos = `
+            SELECT 
+                u.nombre_completo AS tecnico, 
+                COUNT(t.id_ticket) AS total_resueltos
+            FROM Tickets AS t
+            JOIN Usuarios AS u ON t.id_tecnico_asignado = u.id_usuario
+            WHERE t.id_estado IN (SELECT id_estado FROM Estados_Ticket WHERE nombre_estado = 'Resuelto' OR nombre_estado = 'Cerrado')
+            GROUP BY u.nombre_completo
+            ORDER BY total_resueltos DESC
+            LIMIT 5;
+        `;
+
+        // Ejecutamos todas las promesas
+        const [
+            [estados], 
+            [areas], 
+            [calificacion], 
+            [tecnicos]
+        ] = await Promise.all([
+            connection.execute(sqlTicketsPorEstado),
+            connection.execute(sqlTicketsPorArea),
+            connection.execute(sqlCalificacionPromedio),
+            connection.execute(sqlTopTecnicos)
+        ]);
+
+        // 3. Devolver los resultados
+        res.status(200).json({
+            ticketsPorEstado: estados,
+            ticketsPorArea: areas,
+            calificacionPromedio: calificacion[0].promedio_general || 0,
+            topTecnicos: tecnicos
+        });
+
+    } catch (error) {
+        console.error("Error en /admin/reportes:", error);
+        res.status(500).json({ error: 'Error interno del servidor al generar reportes' });
+    } finally {
+        if (connection) connection.release();
+    }
+});
+
+
+// ... (app.listen) ...
+
 // 6. INICIAR EL SERVIDOR
 app.listen(PORT, () => {
     console.log(`🚀 Servidor API corriendo en http://localhost:${PORT}`);
