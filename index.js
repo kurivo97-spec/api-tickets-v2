@@ -315,6 +315,8 @@ app.post('/tickets/crear', protegerRuta, async (req, res) => {
  */
 // index.js (API Backend)
 
+// index.js (API Backend)
+
 app.get('/mis-tickets', protegerRuta, async (req, res) => { // 'protegerRuta' está bien
 
     const idSolicitante = req.usuario.id; // <-- DESCOMENTADO CORRECTAMENTE
