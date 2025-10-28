@@ -85,6 +85,13 @@ const protegerRuta = (req, res, next) => {
  */
 app.post('/login', async (req, res) => {
     
+    // ¡¡AÑADE ESTA LÍNEA!!
+    console.log('==== INTENTO DE LOGIN RECIBIDO ===='); 
+
+    const { username, password } = req.body;
+    if (!username || !password) {
+    
+
     // 1. Obtener datos del cuerpo (body)
     const { username, password } = req.body;
 
