@@ -115,6 +115,8 @@ app.post('/login', async (req, res) => {
             return res.status(401).json({ error: 'Contraseña incorrecta' });
         }
 
+// ... (código anterior del login) ...
+
         console.log('Creando token JWT...'); // Log 8: Antes de JWT
         const payload = {
             id: user.id_usuario,
@@ -124,25 +126,28 @@ app.post('/login', async (req, res) => {
 
         // Verifica que JWT_SECRET exista ANTES de usarlo
         if (!process.env.JWT_SECRET) {
-             console.error('¡ERROR FATAL: JWT_SECRET no está definido en las variables de entorno!');
-             throw new Error('Error de configuración del servidor'); // Esto debería forzar un error 500
+             console.error('¡ERROR FATAL: JWT_SECRET no está definido!');
+             throw new Error('Error de configuración del servidor');
         }
 
+        // ¡CREA EL TOKEN SOLO UNA VEZ!
         const token = jwt.sign(payload, process.env.JWT_SECRET, { expiresIn: '1d' });
         console.log('Token JWT creado.'); // Log 9: JWT OK
 
-        // Log 10: Antes de enviar la respuesta (¡el punto crítico!)
-        console.log('Enviando respuesta JSON...');
-        res.status(200).json({
+        // === ¡NUEVO LOG! Mostramos lo que vamos a enviar ===
+        const responseData = {
             message: 'Login exitoso',
             token: token,
-            usuario: {
-                id_usuario: user.id_usuario,
-                nombre: user.nombre_completo,
-                id_rol: user.id_rol,
-                datos_actualizados: user.datos_actualizados
-            }
-        });
+            // ... (resto de responseData)
+        };
+        console.log('Datos a enviar en JSON:', JSON.stringify(responseData)); // Log 10 Bis
+        // =================================================
+
+        // Log 10: Antes de enviar la respuesta
+        console.log('Enviando respuesta JSON...');
+        res.status(200).json(responseData);
+        // ... (resto del código) ...
+        
         // Log 11: Si llega aquí, la respuesta se envió
         console.log('Respuesta JSON enviada exitosamente.');
 
