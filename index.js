@@ -78,55 +78,61 @@ const protegerRuta = (req, res, next) => {
     });
 };
 
-// index.js (API Backend)
+// index.js (API Backend) - /login CON LOGS DETALLADOS
 
-// ... (después del middleware protegerRuta) ...
-
-/**
- * @endpoint POST /login
- * @desc Autentica a un usuario y devuelve un token.
- */
 app.post('/login', async (req, res) => {
-    
-    // Log para depuración (CORRECTO)
-    console.log('==== INTENTO DE LOGIN RECIBIDO ===='); 
-    
-    // 1. Obtener datos del cuerpo (body)
-    const { username, password } = req.body; // Asegúrate de que solo esté definido UNA VEZ
+    console.log('==== INTENTO DE LOGIN RECIBIDO ===='); // Log 1: Inicio
+    const { username, password } = req.body;
 
     if (!username || !password) {
+        console.log('Login Fallido: Faltan username o password');
         return res.status(400).json({ error: 'Usuario y contraseña son requeridos' });
     }
 
     let connection;
     try {
-        // 2. Obtener conexión
+        console.log(`Buscando usuario: ${username}`); // Log 2: Antes de la BD
         connection = await pool.getConnection();
+        console.log('Conexión a BD obtenida.'); // Log 3: Conexión OK
 
-        // 3. Buscar usuario
         const sqlQuery = 'SELECT * FROM Usuarios WHERE username = ?';
         const [users] = await connection.execute(sqlQuery, [username]);
+        console.log(`Usuario encontrado: ${users.length > 0}`); // Log 4: Resultado búsqueda
 
         if (users.length === 0) {
+            console.log('Login Fallido: Usuario no encontrado');
             return res.status(404).json({ error: 'Usuario no encontrado' });
         }
         const user = users[0];
+        console.log('Usuario:', user.id_usuario, user.username); // Log 5: Datos básicos usuario
 
-        // 4. Comparar contraseña
+        console.log('Comparando contraseña...'); // Log 6: Antes de bcrypt
         const isPasswordCorrect = await bcrypt.compare(password, user.password_hash);
+        console.log(`Contraseña correcta: ${isPasswordCorrect}`); // Log 7: Resultado bcrypt
+
         if (!isPasswordCorrect) {
+            console.log('Login Fallido: Contraseña incorrecta');
             return res.status(401).json({ error: 'Contraseña incorrecta' });
         }
 
-        // 5. Crear Token JWT
+        console.log('Creando token JWT...'); // Log 8: Antes de JWT
         const payload = {
             id: user.id_usuario,
             rol: user.id_rol,
             area_servicio: user.id_area_servicio
         };
-        const token = jwt.sign(payload, process.env.JWT_SECRET, { expiresIn: '1d' });
 
-        // 6. Enviar Respuesta JSON (¡ESTO ES LO QUE FALTABA!)
+        // Verifica que JWT_SECRET exista ANTES de usarlo
+        if (!process.env.JWT_SECRET) {
+             console.error('¡ERROR FATAL: JWT_SECRET no está definido en las variables de entorno!');
+             throw new Error('Error de configuración del servidor'); // Esto debería forzar un error 500
+        }
+
+        const token = jwt.sign(payload, process.env.JWT_SECRET, { expiresIn: '1d' });
+        console.log('Token JWT creado.'); // Log 9: JWT OK
+
+        // Log 10: Antes de enviar la respuesta (¡el punto crítico!)
+        console.log('Enviando respuesta JSON...');
         res.status(200).json({
             message: 'Login exitoso',
             token: token,
@@ -137,17 +143,23 @@ app.post('/login', async (req, res) => {
                 datos_actualizados: user.datos_actualizados
             }
         });
+        // Log 11: Si llega aquí, la respuesta se envió
+        console.log('Respuesta JSON enviada exitosamente.');
 
     } catch (error) {
-        // ¡IMPORTANTE! Captura el error y envía una respuesta JSON de error
-        console.error("Error DETALLADO en /login:", error); 
-        res.status(500).json({ error: 'Error interno del servidor durante el login' }); // Envía JSON, no texto plano
+        // Log 12: Si ALGO falla dentro del try
+        console.error("Error DETALLADO en /login (catch):", error);
+        // Asegúrate de enviar una respuesta JSON incluso en error
+        if (!res.headersSent) { // Solo si no se ha enviado ya una respuesta
+             res.status(500).json({ error: 'Error interno del servidor durante el login' });
+        }
     } finally {
-        if (connection) connection.release();
+        if (connection) {
+             connection.release();
+             console.log('Conexión a BD liberada.'); // Log 13: Limpieza
+        }
     }
-}); // <-- Asegúrate de que esta llave cierre app.post correctamente
-
-// ... (resto de los endpoints) ...
+});
 
 
 // ========================================================
