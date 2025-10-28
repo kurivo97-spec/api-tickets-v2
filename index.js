@@ -275,55 +275,88 @@ app.get('/configuracion', async (req, res) => {
  * @endpoint POST /tickets/crear
  * @desc Crea un nuevo ticket (Ruta Protegida).
  */
-app.post('/tickets/crear', protegerRuta, async (req, res) => {
-    
-    // 1. Obtenemos el ID del usuario que crea el ticket (gracias al token)
-    const idSolicitante = req.usuario.id;
+// index.js (API Backend) - /login FINAL CORRECTO
 
-    // 2. Obtenemos los datos del formulario
-    const { titulo, descripcion, prioridad, id_area, id_subcategoria } = req.body;
+app.post('/login', async (req, res) => {
+    console.log('==== INTENTO DE LOGIN RECIBIDO ====');
+    const { username, password } = req.body;
 
-    if (!titulo || !descripcion || !prioridad || !id_area) {
-        return res.status(400).json({ error: 'Título, descripción, prioridad y área son requeridos' });
+    if (!username || !password) {
+        console.log('Login Fallido: Faltan datos');
+        return res.status(400).json({ error: 'Usuario y contraseña son requeridos' });
     }
 
     let connection;
     try {
+        console.log(`Buscando usuario: ${username}`);
         connection = await pool.getConnection();
+        console.log('Conexión BD obtenida.');
 
-        // 3. Buscamos el ID del estado "Recibido"
-        // (En nuestro script de SCRIPT 2, "Recibido" es el ID 1)
-        const [estados] = await connection.execute('SELECT id_estado FROM Estados_Ticket WHERE nombre_estado = ?', ['Recibido']);
-        if (estados.length === 0) {
-            throw new Error('Estado "Recibido" no encontrado en la base de datos');
+        const sqlQuery = 'SELECT * FROM Usuarios WHERE username = ?';
+        const [users] = await connection.execute(sqlQuery, [username]);
+        console.log(`Usuario encontrado: ${users.length > 0}`);
+
+        if (users.length === 0) {
+            console.log('Login Fallido: Usuario no encontrado');
+            return res.status(404).json({ error: 'Usuario no encontrado' });
         }
-        const idEstadoRecibido = estados[0].id_estado;
-        
-        // 4. Creamos la consulta SQL para insertar el ticket
-        const sqlQuery = `
-            INSERT INTO Tickets (titulo, descripcion, prioridad, id_solicitante, id_area, id_subcategoria, id_estado)
-            VALUES (?, ?, ?, ?, ?, ?, ?)
-        `;
-        
-        // El id_subcategoria puede ser 'null' (ej: para Mantenimiento)
-        const params = [titulo, descripcion, prioridad, idSolicitante, id_area, id_subcategoria || null, idEstadoRecibido];
+        const user = users[0];
+        console.log('Usuario:', user.id_usuario);
 
-        // 5. Ejecutamos la inserción
-        const [result] = await connection.execute(sqlQuery, params);
-        
-        const nuevoTicketId = result.insertId;
+        console.log('Comparando contraseña...');
+        const isPasswordCorrect = await bcrypt.compare(password, user.password_hash);
+        console.log(`Contraseña correcta: ${isPasswordCorrect}`);
 
-        // 6. Éxito
-        res.status(201).json({ 
-            message: 'Ticket creado exitosamente', 
-            id_ticket: nuevoTicketId // Devolvemos el ID del nuevo ticket
-        });
+        if (!isPasswordCorrect) {
+            console.log('Login Fallido: Contraseña incorrecta');
+            return res.status(401).json({ error: 'Contraseña incorrecta' });
+        }
+
+        console.log('Creando token JWT...');
+        const payload = {
+            id: user.id_usuario,
+            rol: user.id_rol,
+            area_servicio: user.id_area_servicio
+        };
+
+        if (!process.env.JWT_SECRET) {
+             console.error('¡ERROR FATAL: JWT_SECRET no definido!');
+             throw new Error('Error de configuración del servidor');
+        }
+        const token = jwt.sign(payload, process.env.JWT_SECRET, { expiresIn: '1d' });
+        console.log('Token JWT creado.');
+
+        // === ¡AQUÍ ESTÁ LA CORRECCIÓN! ===
+        // Construimos el objeto COMPLETO para la respuesta
+        const responseData = {
+            message: 'Login exitoso',
+            token: token,
+            // Asegúrate de incluir el objeto 'usuario' completo
+            usuario: {
+                id_usuario: user.id_usuario,
+                nombre: user.nombre_completo, // Asegúrate que la columna se llame así
+                id_rol: user.id_rol,
+                datos_actualizados: user.datos_actualizados
+            }
+        };
+        console.log('Datos a enviar en JSON:', JSON.stringify(responseData));
+        // ===================================
+
+        console.log('Enviando respuesta JSON...');
+        // Enviamos el objeto COMPLETO
+        res.status(200).json(responseData);
+        console.log('Respuesta JSON enviada exitosamente.');
 
     } catch (error) {
-        console.error("Error en /tickets/crear:", error);
-        res.status(500).json({ error: 'Error interno del servidor' });
+        console.error("Error DETALLADO en /login (catch):", error);
+        if (!res.headersSent) {
+             res.status(500).json({ error: 'Error interno del servidor durante el login' });
+        }
     } finally {
-        if (connection) connection.release();
+        if (connection) {
+             connection.release();
+             console.log('Conexión BD liberada.');
+        }
     }
 });
 
