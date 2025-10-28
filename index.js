@@ -78,6 +78,9 @@ const protegerRuta = (req, res, next) => {
     });
 };
 
+// index.js (API Backend)
+
+// ... (después del middleware protegerRuta) ...
 
 /**
  * @endpoint POST /login
@@ -85,15 +88,11 @@ const protegerRuta = (req, res, next) => {
  */
 app.post('/login', async (req, res) => {
     
-    // ¡¡AÑADE ESTA LÍNEA!!
+    // Log para depuración (CORRECTO)
     console.log('==== INTENTO DE LOGIN RECIBIDO ===='); 
-
-    const { username, password } = req.body;
-    if (!username || !password) {
     
-
     // 1. Obtener datos del cuerpo (body)
-    const { username, password } = req.body;
+    const { username, password } = req.body; // Asegúrate de que solo esté definido UNA VEZ
 
     if (!username || !password) {
         return res.status(400).json({ error: 'Usuario y contraseña son requeridos' });
@@ -101,40 +100,33 @@ app.post('/login', async (req, res) => {
 
     let connection;
     try {
-        // 2. Obtener una conexión del Pool
+        // 2. Obtener conexión
         connection = await pool.getConnection();
 
-        // 3. Buscar al usuario en la BD
-        // (Recuerda que tu usuario de prueba es 'admin')
+        // 3. Buscar usuario
         const sqlQuery = 'SELECT * FROM Usuarios WHERE username = ?';
         const [users] = await connection.execute(sqlQuery, [username]);
 
         if (users.length === 0) {
             return res.status(404).json({ error: 'Usuario no encontrado' });
         }
-
         const user = users[0];
 
-        // 4. Comparar la contraseña recibida con el hash de la BD
-        // (La contraseña de 'admin' es '123456')
+        // 4. Comparar contraseña
         const isPasswordCorrect = await bcrypt.compare(password, user.password_hash);
-
         if (!isPasswordCorrect) {
             return res.status(401).json({ error: 'Contraseña incorrecta' });
         }
 
-        // 5. ¡ÉXITO! Crear un Token de Sesión (JWT)
+        // 5. Crear Token JWT
         const payload = {
             id: user.id_usuario,
             rol: user.id_rol,
             area_servicio: user.id_area_servicio
         };
-        
-        const token = jwt.sign(payload, process.env.JWT_SECRET, {
-            expiresIn: '1d' // El token dura 1 día
-        });
+        const token = jwt.sign(payload, process.env.JWT_SECRET, { expiresIn: '1d' });
 
-        // 6. Enviar la respuesta
+        // 6. Enviar Respuesta JSON (¡ESTO ES LO QUE FALTABA!)
         res.status(200).json({
             message: 'Login exitoso',
             token: token,
@@ -147,13 +139,15 @@ app.post('/login', async (req, res) => {
         });
 
     } catch (error) {
-        console.error("Error en /login:", error);
-        res.status(500).json({ error: 'Error interno del servidor' });
+        // ¡IMPORTANTE! Captura el error y envía una respuesta JSON de error
+        console.error("Error DETALLADO en /login:", error); 
+        res.status(500).json({ error: 'Error interno del servidor durante el login' }); // Envía JSON, no texto plano
     } finally {
-        // 7. Siempre liberar la conexión al final
         if (connection) connection.release();
     }
-}); // <--- AQUÍ TERMINA EL LOGIN
+}); // <-- Asegúrate de que esta llave cierre app.post correctamente
+
+// ... (resto de los endpoints) ...
 
 
 // ========================================================
